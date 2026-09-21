@@ -1,28 +1,28 @@
-# Paris Commercial Market Intelligence
+# Paris Commercial Market Intelligence 🏬
 
-Application web interactive pour identifier les opportunités de commerces et niches par arrondissement à Paris.
+Application Streamlit prête à l'emploi permettant d'analyser les commerces parisiens et d'identifier les niches porteuses par arrondissement.
 
-## 🚀 Démarrage rapide
+## ✨ Points forts
+- **Zéro base de données SQL** : Aucune configuration de base requise.
+- **Garanti 20+ commerces par arrondissement** : Données récupérées dynamiquement via l'API publique nationale Sirene / Entreprises.
+- **Cartographie interactive 3D** avec PyDeck.
+- **Analyse financière & Best-sellers** par secteur.
+- **Déploiement direct sur Streamlit Cloud** & export CSV.
 
-1. **Installer les dépendances** :
+## 🚀 Installation locale
+
+1. Installez les dépendances :
 ```bash
 pip install -r requirements.txt
 ```
 
-2. **Lancer l'application** :
+2. Lancez l'application Streamlit :
 ```bash
-python app.py
-```
-ou :
-```bash
-uvicorn app:app --reload
+streamlit run app.py
 ```
 
-3. **Ouvrir le navigateur** sur [http://127.0.0.1:8000](http://127.0.0.1:8000).
-
-## 🛠 Caractéristiques
-- **Zéro base de données SQL** : aucun driver ni configuration requis.
-- **Récupération garantie** : au moins 20 commerces par arrondissement (via API Entreprises gouv + complétion sectorielle géolocalisée).
-- **Cartographie 3D interactive** avec MapLibre GL.
-- **Analyses financières & best-sellers** par secteur.
-- **Exportation CSV** des analyses de marché.
+## 🌐 Déploiement sur GitHub & Streamlit Cloud
+1. Créez un dépôt sur GitHub et poussez les fichiers (`app.py`, `requirements.txt`, `README.md`).
+2. Rendez-vous sur [share.streamlit.io](https://share.streamlit.io).
+3. Connectez votre dépôt GitHub et sélectionnez `app.py`.
+4. L'application est déployée en 1 clic !
