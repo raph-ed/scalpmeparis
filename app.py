@@ -126,15 +126,15 @@ CATALOGUE_SEMANTIQUE = {
 
 def determiner_affluence_et_couleur(marge_nette: float, ca: float):
     if ca >= 350000 or marge_nette >= 0.11:
-        return "Forte affluence / Très demandé", [239, 68, 68, 200]   # Rouge
+        return "Forte affluence / Très demandé", [239, 68, 68, 200]
     elif ca >= 180000 or marge_nette >= 0.06:
-        return "Passage régulier / Intermédiaire", [245, 158, 11, 200] # Orange
+        return "Passage régulier / Intermédiaire", [245, 158, 11, 200]
     else:
-        return "Calme / Clientèles habituées", [16, 185, 129, 200]     # Vert
+        return "Calme / Clientèles habituées", [16, 185, 129, 200]
 
 def estimer_financier(siren: str, secteur: str):
     bench = SECTEUR_BENCHMARKS.get(secteur, {"ca_ref": 250000, "marge_ref": 0.08})
-    hash_val = int(hashlib.md5(siren.encode()).hexdigest(), 16)
+    hash_val = int(hashlib.md5(siren.encode("utf-8")).hexdigest(), 16)
     variation_ca = 0.60 + ((hash_val % 100) / 100.0) * 0.90
     variation_marge = 0.55 + (((hash_val // 100) % 100) / 100.0) * 1.05
     ca = round(bench["ca_ref"] * variation_ca, 2)
@@ -144,10 +144,6 @@ def estimer_financier(siren: str, secteur: str):
 
 @st.cache_data(show_spinner=False, ttl=3600)
 def charger_commerces(code_postal: str, secteur: str):
-    """
-    Récupère les commerces via l'API publique recherche-entreprises.api.gouv.fr
-    Garantit au minimum 20 commerces par arrondissement avec modélisation financière.
-    """
     api_url = "https://recherche-entreprises.api.gouv.fr/search"
     code_naf = SECTEURS_MAPPING.get(secteur)
     center_lat, center_lon = ARRONDISSEMENTS_CENTRES.get(code_postal, (48.8566, 2.3522))
@@ -186,7 +182,7 @@ def charger_commerces(code_postal: str, secteur: str):
                     lat = float(siege.get("latitude"))
                     lon = float(siege.get("longitude"))
                 except (TypeError, ValueError):
-                    h = int(hashlib.md5(siren.encode()).hexdigest(), 16)
+                    h = int(hashlib.md5(siren.encode("utf-8")).hexdigest(), 16)
                     lat = center_lat + ((h % 200) - 100) * 0.00008
                     lon = center_lon + (((h // 200) % 200) - 100) * 0.00010
 
@@ -211,7 +207,7 @@ def charger_commerces(code_postal: str, secteur: str):
         except Exception:
             break
 
-    # Complément pour garantir au minimum 20 commerces
+    # Complément garanti à 20 commerces minimum
     if len(results) < 20:
         manquants = 20 - len(results)
         for i in range(1, manquants + 1):
@@ -219,7 +215,6 @@ def charger_commerces(code_postal: str, secteur: str):
             ca, rn, marge_pct = estimer_financier(siren_synth, secteur)
             affluence, couleur_rgba = determiner_affluence_et_couleur(marge_pct / 100.0, ca)
             
-            angle = (i / manquants) * 6.28318
             radius = 0.003 + ((i % 5) * 0.001)
             lat = center_lat + (radius * 0.7 * (1 if i % 2 == 0 else -1))
             lon = center_lon + (radius * (1 if i % 3 == 0 else -1))
@@ -246,7 +241,6 @@ def charger_commerces(code_postal: str, secteur: str):
 st.title("🏬 Paris Commercial Market Intelligence")
 st.markdown("Identifiez les opportunités de marché, zones d'implantation et niches commerciales rentables à Paris.")
 
-# Barre latérale pour les filtres
 st.sidebar.header("🔍 Paramètres de Recherche")
 arrondissement_label = st.sidebar.selectbox("Arrondissement", list(ARRONDISSEMENTS.keys()), index=10)
 code_postal = ARRONDISSEMENTS[arrondissement_label]
@@ -257,22 +251,20 @@ secteur = SECTEURS[secteur_label]
 with st.spinner("Analyse du marché en cours..."):
     df = charger_commerces(code_postal, secteur)
 
-# Calcul des statistiques
 nb_commerces = len(df)
 rendement_moyen = round(df["marge_nette_pct"].mean(), 2) if nb_commerces > 0 else 0.0
 ca_moyen = round(df["chiffre_affaires"].mean(), 2) if nb_commerces > 0 else 0.0
 score_opportunite = round(min(100.0, max(15.0, (rendement_moyen * 4.2) + (100.0 / (nb_commerces + 1)))), 1)
 
-# Affichage des métriques clés (KPIs)
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("📊 Rendement Moyen", f"{rendement_moyen} %")
-col2.metric("💰 CA Moyen Estimé", f"{ca_moyen:,.0f} €".replace(",", " "))
+ca_formate = f"{ca_moyen:,.0f} €".replace(",", " ")
+col2.metric("💰 CA Moyen Estimé", ca_formate)
 col3.metric("🏢 Commerces Scannés", f"{nb_commerces}")
 col4.metric("🎯 Score Opportunité Niche", f"{score_opportunite} / 100")
 
 st.markdown("---")
 
-# Section Cartographie Interactive 3D
 st.subheader("🗺️ Cartographie de Densité & Dynamisme Commercial")
 center_lat, center_lon = ARRONDISSEMENTS_CENTRES.get(code_postal, (48.8566, 2.3522))
 
@@ -300,23 +292,23 @@ layer = pdk.Layer(
     get_line_color=[255, 255, 255, 255]
 )
 
-tooltip = {
-    "html": "<b>{nom}</b><br/>"
-            "📍 {adresse}<br/>"
-            "📊 Affluence : <b>{affluence}</b><br/>"
-            "💶 CA Estimé : <b>{chiffre_affaires} €</b><br/>"
-            "📈 Marge Nette : <b>{marge_nette_pct} %</b>",
-    "style": {"backgroundColor": "#1a1c21", "color": "white", "fontSize": "13px", "fontFamily": "sans-serif"}
+tooltip_config = {
+    "html": "<b>{nom}</b><br/>📍 {adresse}<br/>📊 Affluence : <b>{affluence}</b><br/>💶 CA Estimé : <b>{chiffre_affaires} €</b><br/>📈 Marge Nette : <b>{marge_nette_pct} %</b>",
+    "style": {
+        "backgroundColor": "#1a1c21",
+        "color": "white",
+        "fontSize": "13px",
+        "fontFamily": "sans-serif"
+    }
 }
 
 st.pydeck_chart(pdk.Deck(
     map_style="mapbox://styles/mapbox/dark-v10",
     initial_view_state=view_state,
     layers=[layer],
-    tooltip=tooltip
+    tooltip=tooltip_config
 ))
 
-# Légende
 col_leg1, col_leg2, col_leg3 = st.columns(3)
 col_leg1.markdown("🔴 **Rouge** : Forte affluence / Très demandé")
 col_leg2.markdown("🟠 **Orange** : Passage régulier / Intermédiaire")
@@ -324,20 +316,19 @@ col_leg3.markdown("🟢 **Vert** : Clientèles locales habituées")
 
 st.markdown("---")
 
-# Section Produits Phares & Opportunités de la Niche
 st.subheader(f"💡 Opportunités & Best-Sellers du Secteur : {secteur_label}")
 produits = CATALOGUE_SEMANTIQUE.get(secteur, [])
 p_cols = st.columns(len(produits))
 for i, prod in enumerate(produits):
     with p_cols[i]:
-        st.info(f"**{prod['produit']}**
-
-- Prix moyen : **{prod['prix_moyen']:.2f} €**
-- Demande : **{prod['indice']}/100**")
+        titre = prod["produit"]
+        prix = "{:.2f} €".format(prod["prix_moyen"])
+        pop = "{}/100".format(prod["indice"])
+        texte = "**" + titre + "**\n\n- Prix moyen : **" + prix + "**\n- Demande : **" + pop + "**"
+        st.info(texte)
 
 st.markdown("---")
 
-# Tables Top 5
 col_t1, col_t2 = st.columns(2)
 
 with col_t1:
@@ -368,7 +359,6 @@ with col_t2:
         use_container_width=True
     )
 
-# Exportation des données
 st.markdown("---")
 csv_data = df.to_csv(index=False, sep=";").encode("utf-8")
 st.download_button(
